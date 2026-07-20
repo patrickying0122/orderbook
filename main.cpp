@@ -51,10 +51,14 @@ class OrderBook{
         }
     }
 
-    void cancelOrder(int id){
-        orders_.erase(
-            std::remove_if(orders_.begin(),orders_.end(),[id](const Order& o){return o.id == id;}),orders_.end()
-        );
+    bool cancelOrder(int id){
+        auto it = std::find_if(orders_.begin(),orders_.end(),[id](const Order&o){return o.id == id;});
+        
+        if (it != orders_.end()){
+            orders_.erase(it);
+            return true;
+        }
+        return false;
     }
     private:
         std::vector<Order> orders_;
