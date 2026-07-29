@@ -3,6 +3,8 @@ main
 orderbook
 ob
 *.o
-
+scratch
 # macOS noise
 .DS_Store
+
+

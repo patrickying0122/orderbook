@@ -11,8 +11,19 @@ clang++ -std=c++20 -Wall main.cpp -o ob && ./ob
 Sample output:
 
 ```
-[id 1] BUY 100 @ 10050
-[id 2] BUY 200 @ 20050
-[id 3] SELL 600 @ 40050
-[id 4] SELL 400 @ 80050
+price|total qty|#orders
+--- SELL ---
+102 | 7 | 1
+101 | 10 | 1
+100 | 8 | 2
+--- BUY ---
+99 | 10 | 2
+98 | 12 | 1
+97 | 8 | 1
+
+best ask = 100   best bid = 99   spread = 1
+
+All main() edge-case asserts passed.
 ```
+
+Each row is one price level: `price | total quantity across all orders at that price | number of orders resting there`. Sells are listed high-to-low and buys high-to-low, so the **best ask (100)** and **best bid (99)** sit next to each other in the middle — the gap between them is the **spread (1)**. Note the `100` sell level shows `8 | 2`: two separate orders (qty 5 and 3) resting at the same price, aggregated.
