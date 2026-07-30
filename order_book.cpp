@@ -2,9 +2,30 @@
 #include <iostream>
 #include <algorithm>
 
-void OrderBook::addOrder(const Order& o){
+
+    // std::map<long, std::deque<Order>, std::greater<long>> bids_;
+    // std::map<long,std::deque<Order>> asks_;
+void OrderBook::addOrder(Order& o){
     if (o.is_buy){
-        bids_[o.price].push_back(o);
+        while(o.qty > 0 && !asks_.empty() && o.price >= bestAsk()){
+            // get the best asks price, since aks_ is a map and it's already sorted, we can just get the first element
+            auto lvl = asks_.begin();
+            // get the list of orders sitting at that price level
+            Order& resting = lvl -> second.front();
+            int fill = std::min(o.qty, resting.qty);
+            trade.push_back(Trade{o.id,resting.id,resting.price,fill});
+            o.qty -= fill;
+            resting.qty -= fill;
+            if(resting.qty == 0){
+                lvl -> second.pop_front();
+                if(lvl -> second.empty()){
+                    lvl = asks_.erase(lvl);
+                }
+            }
+        }
+        if(o.qty > 0){
+            bids_[o.price].push_back(o);
+        }
     }
     else{
         asks_[o.price].push_back(o);
@@ -76,4 +97,8 @@ bool OrderBook::cancelOrder(int id){
     }
     return false;
 
+}
+
+std::vector<Trade> OrderBook::tradeAccessor() const{
+    return trade;
 }
