@@ -7,28 +7,13 @@
     // std::map<long,std::deque<Order>> asks_;
 void OrderBook::addOrder(Order& o){
     if (o.is_buy){
-        while(o.qty > 0 && !asks_.empty() && o.price >= bestAsk()){
-            // get the best asks price, since aks_ is a map and it's already sorted, we can just get the first element
-            auto lvl = asks_.begin();
-            // get the list of orders sitting at that price level
-            Order& resting = lvl -> second.front();
-            int fill = std::min(o.qty, resting.qty);
-            trade.push_back(Trade{o.id,resting.id,resting.price,fill});
-            o.qty -= fill;
-            resting.qty -= fill;
-            if(resting.qty == 0){
-                lvl -> second.pop_front();
-                if(lvl -> second.empty()){
-                    lvl = asks_.erase(lvl);
-                }
-            }
-        }
-        if(o.qty > 0){
-            bids_[o.price].push_back(o);
-        }
+        //the third parameter is a lambda expression that returns the lvl that matches the cross price.
+        matchAgainst(asks_,o,[&o](long lvl){return o.is_market || o.price >= lvl;});
+        if(o.qty > 0 && !o.is_market) bids_[o.price].push_back(o);
     }
     else{
-        asks_[o.price].push_back(o);
+        matchAgainst(bids_,o,[&o](long lvl){return o.is_market || o.price <= lvl;});
+        if (o.qty >0 && !o.is_market) asks_[o.price].push_back(o);
     }
 }
 
