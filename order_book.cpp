@@ -84,6 +84,6 @@ bool OrderBook::cancelOrder(int id){
 
 }
 
-std::vector<Trade> OrderBook::tradeAccessor() const{
+const std::vector<Trade>& OrderBook::tradeAccessor() const{
     return trade;
 }

@@ -5,6 +5,7 @@
 #include <optional>
 #include <vector>
 #include <algorithm>
+#include <list>
 
 struct Order{
     int id{};
@@ -37,12 +38,15 @@ class OrderBook{
 
     bool cancelOrder(int id);
 
-    std::vector<Trade> tradeAccessor() const;
+    const std::vector<Trade>& tradeAccessor() const;
 
     private:
-        std::map<long, std::deque<Order>, std::greater<long>> bids_;
-        std::map<long,std::deque<Order>> asks_;
+        std::map<long, std::list<Order>, std::greater<long>> bids_;
+        std::map<long, std::list<Order>> asks_;
+        // std::map<long, std::deque<Order>, std::greater<long>> bids_;
+        // std::map<long,std::deque<Order>> asks_;
         std::vector<Trade> trade;
+
         template <typename LevelMap,typename Crosses>
         void matchAgainst(LevelMap& opposite, Order& o, Crosses crosses){
             while(o.qty > 0 && !opposite.empty() && crosses(opposite.begin()->first)){

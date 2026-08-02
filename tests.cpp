@@ -18,7 +18,7 @@ void test_buy_sweeps_two_ask_levels(int& failures){
     book.addOrder(s2);
     book.addOrder(b);
 
-    auto trades = book.tradeAccessor();
+    const auto& trades = book.tradeAccessor();
     CHECK(trades.size() == 2);
     if (trades.size() == 2) {
         CHECK(trades[0].buy_id  == 3);
@@ -49,7 +49,7 @@ void test_sell_sweeps_two_bid_levels(int& failures){
     book.addOrder(b2);
     book.addOrder(s);
 
-    auto trades = book.tradeAccessor();
+    const auto& trades = book.tradeAccessor();
     CHECK(trades.size() == 2);
     if (trades.size() == 2) {
         CHECK(trades[0].buy_id  == 1);     // resting order is the BUYER here
@@ -79,7 +79,7 @@ void test_market_buy(int& failures){
     book.addOrder(s2);
     book.addOrder(m);
 
-    auto trades = book.tradeAccessor();
+    const auto& trades = book.tradeAccessor();
     CHECK(trades.size() == 2);
     if (trades.size() == 2) {
         CHECK(trades[0].buy_id  == 3);
