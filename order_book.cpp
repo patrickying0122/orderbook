@@ -9,11 +9,19 @@ void OrderBook::addOrder(Order& o){
     if (o.is_buy){
         //the third parameter is a lambda expression that returns the lvl that matches the cross price.
         matchAgainst(asks_,o,[&o](long lvl){return o.is_market || o.price >= lvl;});
-        if(o.qty > 0 && !o.is_market) bids_[o.price].push_back(o);
+        if(o.qty > 0 && !o.is_market) {
+            bids_[o.price].push_back(o);
+            auto it = std::prev(bids_[o.price].end());
+            index_[o.id] = Locator{true,o.price,it};
+        }
     }
     else{
         matchAgainst(bids_,o,[&o](long lvl){return o.is_market || o.price <= lvl;});
-        if (o.qty >0 && !o.is_market) asks_[o.price].push_back(o);
+        if (o.qty >0 && !o.is_market){
+            asks_[o.price].push_back(o);
+            auto it = std::prev(asks_[o.price].end());
+            index_[o.id] = Locator{false,o.price,it};
+        }
     }
 }
 
@@ -62,27 +70,34 @@ void OrderBook::printBook() const{
     }
 
 }
-
 bool OrderBook::cancelOrder(int id){
-    for(auto& [price,dq]:bids_){
-        auto it = std::find_if(dq.begin(),dq.end(),[id](const Order& o){return o.id == id;});
-        if(it != dq.end()){
-            dq.erase(it);
-            if(dq.empty()) bids_.erase(price);
-            return true;
-        }
-    }
-    for(auto& [price,dq]:asks_){
-        auto it = std::find_if(dq.begin(),dq.end(),[id](const Order& o){return o.id == id;});
-        if(it != dq.end()){
-            dq.erase(it);
-            if(dq.empty()) asks_.erase(price);
-            return true;
-        }
-    }
-    return false;
+    // the find method used will return a iterator into the unordered_map, so 
+    // it -> {first: 42 (the id), second:Locator{...}}
+    auto hit = index_.find(id);
+    if(hit == index_.end()) return false;
+    const Locator& loc = hit -> second;
 
+    if(loc.is_buy){
+        //lvl will be a iterator into the bids_ and lvl->second would be the list at that price level
+        auto lvl = bids_.find(loc.price);
+        if (lvl == bids_.end()) return false;
+        lvl->second.erase(loc.it);
+        if (lvl->second.empty()) bids_.erase(lvl);
+        index_.erase(hit);
+        return true;
+    }
+    else{
+        auto lvl = asks_.find(loc.price);
+        if (lvl == asks_.end()) return false;
+        lvl -> second.erase(loc.it);
+        if (lvl->second.empty()) asks_.erase(lvl);
+        index_.erase(hit);
+        return true;
+    }
+
+    return false;
 }
+
 
 const std::vector<Trade>& OrderBook::tradeAccessor() const{
     return trade;

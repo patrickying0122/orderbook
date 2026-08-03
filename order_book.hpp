@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <list>
+#include <unordered_map>
 
 struct Order{
     int id{};
@@ -20,6 +21,12 @@ struct Trade{
     int sell_id{};
     long price{};
     int qty{};
+};
+
+struct Locator{
+    bool is_buy{};
+    long price {};
+    std::list<Order>::iterator it;
 };
 
 class OrderBook{
@@ -43,9 +50,8 @@ class OrderBook{
     private:
         std::map<long, std::list<Order>, std::greater<long>> bids_;
         std::map<long, std::list<Order>> asks_;
-        // std::map<long, std::deque<Order>, std::greater<long>> bids_;
-        // std::map<long,std::deque<Order>> asks_;
         std::vector<Trade> trade;
+        std::unordered_map<int,Locator> index_;
 
         template <typename LevelMap,typename Crosses>
         void matchAgainst(LevelMap& opposite, Order& o, Crosses crosses){
@@ -60,6 +66,10 @@ class OrderBook{
                 o.qty -= fill;
                 resting.qty -= fill;
                 if(resting.qty == 0){
+                    // Drop the index entry BEFORE pop_front: `resting` is a reference
+                    // into the node that pop_front destroys, so reading its id after
+                    // would be a use-after-free.
+                    index_.erase(resting.id);
                     lvl -> second.pop_front();
                     if(lvl -> second.empty()){
                         lvl = opposite.erase(lvl);

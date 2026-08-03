@@ -97,12 +97,105 @@ void test_market_buy(int& failures){
     CHECK(!book.bestBid().has_value());    // a market order never rests
 }
 
+// Plain cancels, no matching involved. Two orders share level 99, so the level
+// must SURVIVE the first cancel and only disappear once the second one goes.
+// Also checks the "not found" path: an id that was never added returns false.
+void test_cancel_basic(int& failures){
+    OrderBook book;
+    Order b1 {1, true, 99, 4};   // level 99, first in queue
+    Order b2 {2, true, 99, 6};   // level 99, behind b1
+    Order b3 {3, true, 98, 5};   // level 98
+    book.addOrder(b1);
+    book.addOrder(b2);
+    book.addOrder(b3);
+
+    CHECK(book.cancelOrder(999) == false);   // never added: must not insert junk into the index
+
+    CHECK(book.cancelOrder(1) == true);
+    CHECK(book.bestBid().has_value() && book.bestBid().value() == 99);  // b2 still holds level 99
+
+    CHECK(book.cancelOrder(2) == true);
+    CHECK(book.bestBid().has_value() && book.bestBid().value() == 98);  // level 99 now erased
+
+    CHECK(book.cancelOrder(3) == true);
+    CHECK(!book.bestBid().has_value());      // book empty
+}
+
+// Cancelling the same id twice. The second call must report false rather than
+// erasing an already-dead list node (which would be undefined behaviour).
+void test_cancel_twice(int& failures){
+    OrderBook book;
+    Order b1 {1, true, 99, 4};
+    book.addOrder(b1);
+
+    CHECK(book.cancelOrder(1) == true);
+    CHECK(book.cancelOrder(1) == false);
+    CHECK(!book.bestBid().has_value());
+}
+
+// THE REGRESSION TEST for today's build: a resting order that gets fully filled
+// is popped from its level by matchAgainst. If matchAgainst forgets to drop it
+// from the index, this cancel finds a stale locator and erases a freed node.
+void test_cancel_after_full_fill(int& failures){
+    OrderBook book;
+    Order s1 {1, false, 100, 10};   // rests, gets indexed
+    Order b  {2, true,  100, 10};   // consumes s1 entirely
+    book.addOrder(s1);
+    book.addOrder(b);
+
+    CHECK(!book.bestAsk().has_value());      // s1 gone from the book
+    CHECK(!book.bestBid().has_value());      // b fully filled, never rested
+
+    CHECK(book.cancelOrder(1) == false);     // stale index entry would return true / crash here
+    CHECK(book.cancelOrder(2) == false);     // b never rested, so it was never indexed
+}
+
+// Partially filled orders STAY resting, so their index entry must survive the
+// fill and still be cancellable afterwards.
+void test_cancel_after_partial_fill(int& failures){
+    OrderBook book;
+    Order s1 {1, false, 100, 10};
+    Order b  {2, true,  100, 4};    // eats 4, leaves 6 resting at 100
+    book.addOrder(s1);
+    book.addOrder(b);
+
+    CHECK(book.bestAsk().has_value() && book.bestAsk().value() == 100);
+
+    CHECK(book.cancelOrder(1) == true);
+    CHECK(!book.bestAsk().has_value());      // level 100 erased once its last order left
+}
+
+// A market order never rests, so it never enters the index and can't be cancelled.
+// Cancelling a level empty and then re-adding at that price must rebuild it cleanly.
+void test_cancel_market_and_relist(int& failures){
+    OrderBook book;
+    Order m {1, true, 0, 5, true};  // market buy against an empty book: no fill, no rest
+    book.addOrder(m);
+    CHECK(book.cancelOrder(1) == false);
+    CHECK(!book.bestBid().has_value());
+
+    Order b1 {2, true, 99, 4};
+    book.addOrder(b1);
+    CHECK(book.cancelOrder(2) == true);      // level 99 created then erased
+
+    Order b2 {3, true, 99, 7};
+    book.addOrder(b2);                       // level 99 recreated from scratch
+    CHECK(book.bestBid().has_value() && book.bestBid().value() == 99);
+    CHECK(book.cancelOrder(3) == true);
+    CHECK(!book.bestBid().has_value());
+}
+
 int main(){
     int failures = 0;
 
     test_buy_sweeps_two_ask_levels(failures);
     test_sell_sweeps_two_bid_levels(failures);
     test_market_buy(failures);
+    test_cancel_basic(failures);
+    test_cancel_twice(failures);
+    test_cancel_after_full_fill(failures);
+    test_cancel_after_partial_fill(failures);
+    test_cancel_market_and_relist(failures);
 
     if(failures == 0) std::cout << "\nALL TESTS PASSED\n";
     else              std::cout << '\n' << failures << " CHECK(S) FAILED\n";
